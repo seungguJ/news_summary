@@ -3,7 +3,7 @@
 ### Crawling
 
 - News headlines for 6 media companies from Naver
-- Economic articles from naver
+- Economics articles from naver
 - IT/Science articles from naver
 - AI articles from AI times
 
