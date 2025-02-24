@@ -53,6 +53,7 @@ def split_articles_by_title(text):
     return articles_with_title
 
 def EEVE_RAG(filename, translate=False):
+    today = datetime.datetime.today().strftime('%Y-%m-%d')
     llm = ChatOllama(
         model="EEVE-Korean-10.8B:latest",
         callback_manager=CallbackManager([]),
@@ -126,6 +127,7 @@ def EEVE_RAG(filename, translate=False):
 
     # 각 기사별로 요약 생성 및 결과 저장
     all_results = ""
+    number = 0
     for i, doc in enumerate(split_documents):
         print(f"Processing Article {i+1}...")
 
@@ -142,25 +144,25 @@ def EEVE_RAG(filename, translate=False):
                 is_duplicate = True
         
         if not is_duplicate:
+            number += 1
             # 토큰 수 확인
             tokens = count_tokens(doc.page_content, model="gpt-3.5-turbo")
-            print(f"Article {i+1} Tokens: {tokens}")
+            print(f"Article {number+1} Tokens: {tokens}")
 
             # LLM을 통한 요약 생성
             result = llm_chain.run(content=doc.page_content)
             if translate:
-                all_results += f"Finance Article {i+1} Summary:\n{result}\n\n"
+                all_results += f"## Finance Article {number+1} Summary:\n{result}\n\n"
             else:
-                all_results += f"Article {i+1} Summary:\n{result}\n\n"
+                all_results += f"## Article {number+1} Summary:\n{result}\n\n"
 
             # 벡터 DB에 요약 결과 저장 (중복 방지를 위해)
             vector_db.add_texts([result], metadatas=[{"source": f"Article_{i+1}"}])
             vector_db.persist()
 
     # 결과 저장
-    today = datetime.datetime.today().strftime('%Y-%m-%d')
     output_dir = "./News_Summaries_EEVE"
-    output_filename = f"{output_dir}/{today}.txt"
+    output_filename = f"{output_dir}/{today}.md"
 
     # 디렉터리가 존재하지 않으면 생성
     if not os.path.exists(output_dir):
