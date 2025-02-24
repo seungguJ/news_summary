@@ -1,10 +1,11 @@
 import requests
 from bs4 import BeautifulSoup
 import datetime
+from zoneinfo import ZoneInfo
 import os
 
 headers = {
-    "User-Agent": "Your User Agent"  # User Agent 정보 입력
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"
 }
 
 def create_soup(url):
@@ -42,7 +43,7 @@ def get_article_content_from_aitimes(url):
 
 
 def news_crawling():
-    today = datetime.datetime.today().strftime('%Y-%m-%d')
+    today = datetime.datetime.now(ZoneInfo("Asia/Seoul")).strftime('%Y-%m-%d')
     file_dir = "./News"
     filename = f"{file_dir}/{today}_news.txt"  # Save as text file
     if not os.path.exists(file_dir):

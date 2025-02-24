@@ -8,6 +8,7 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 import os
 import datetime
+from zoneinfo import ZoneInfo
 import tiktoken
 from langchain.schema import Document
 
@@ -39,22 +40,6 @@ def print_token_usage(query, documents, model="gpt-3.5-turbo"):
     else:
         print("✅ Total tokens are within the acceptable range.")
 
-def load_and_split_documents(loaders):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=100)
-    all_splits = []
-    
-    for loader in loaders:
-        pages = loader.load_and_split()
-        splits = text_splitter.split_documents(pages)
-        all_splits.extend(splits)
-    
-    return all_splits
-
-def split_docs(documents,chunk_size=1000,chunk_overlap=200):
-  text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-  docs = text_splitter.split_documents(documents)
-  return docs
-
 def split_articles_by_title(text):
     # '- 제목'을 기준으로 텍스트 분할
     articles = text.split('- 제목')
@@ -67,7 +52,7 @@ def split_articles_by_title(text):
     
     return articles_with_title
 
-def EEVE_RAG(filename):
+def EEVE_RAG(filename, translate=False):
     llm = ChatOllama(
         model="EEVE-Korean-10.8B:latest",
         callback_manager=CallbackManager([]),
@@ -92,9 +77,9 @@ def EEVE_RAG(filename):
     # 분할된 기사들을 Document 객체로 변환
     split_documents = [Document(page_content=article) for article in all_articles]
 
-    today = datetime.datetime.today().strftime('%Y-%m-%d')
-    vector_dir = "./vector_db"
-    vector_db_dir = f".{vector_dir}/{today}"
+    today = datetime.datetime.now(ZoneInfo("Asia/Seoul")).strftime('%Y-%m-%d')
+    vector_dir = "./vector_db_EEVE"
+    vector_db_dir = f"{vector_dir}/{today}"
     if not os.path.exists(vector_dir):
         os.makedirs(vector_dir)
         print(f"Directory '{vector_dir}' created.")
@@ -108,18 +93,32 @@ def EEVE_RAG(filename):
         vector_db.persist()  # 빈 DB 초기화
 
     # 프롬프트 템플릿
-    template = (
-        "다음 기사를 읽고 요약해 주세요:\n\n"
-        "{content}\n\n"
-        "요약 형식:\n"
-        "- 제목: [제목]\n"
-        "- 요약: [요약문]\n\n"
-        "요약 작성 시 유의사항:\n"
-        "1. 각 요약문은 해당 기사 본문의 핵심 내용을 모두 포함해야 합니다.\n"
-        "2. 요약문은 구체적이고 자세하게 작성하며, 500자 이상으로 충분한 정보를 제공해 주세요.\n"
-        "3. 기사에 언급된 인물, 사건 발생 시간, 장소, 사건의 경위 및 경찰의 조사 상황 등 중요한 세부 사항을 빠뜨리지 말고 포함해 주세요.\n"
-        "4. 각 요약문은 명확하고 간결한 문장으로 구성해 주세요.\n"
-    )
+    if not translate:
+        template = (
+            "다음 기사를 읽고 요약해 주세요:\n\n"
+            "{content}\n\n"
+            "요약 형식:\n"
+            "- 제목: [제목]\n"
+            "- 요약: [요약문]\n\n"
+            "요약 작성 시 유의사항:\n"
+            "1. 각 요약문은 해당 기사 본문의 핵심 내용을 모두 포함해야 합니다.\n"
+            "2. 요약문은 구체적이고 자세하게 작성하며, 500자 이상으로 충분한 정보를 제공해 주세요.\n"
+            "3. 기사에 언급된 인물, 사건 발생 시간, 장소, 사건의 경위 및 경찰의 조사 상황 등 중요한 세부 사항을 빠뜨리지 말고 포함해 주세요.\n"
+            "4. 각 요약문은 명확하고 간결한 문장으로 구성해 주세요.\n"
+        )
+    else:
+        template = (
+            "다음 영어 기사를 읽고 한국말로 요약해 주세요:\n\n"
+            "{content}\n\n"
+            "요약 형식:\n"
+            "- 제목: [제목]\n"
+            "- 요약: [요약문]\n\n"
+            "요약 작성 시 유의사항:\n"
+            "1. 각 요약문은 해당 기사 본문의 핵심 내용을 모두 포함해야 합니다.\n"
+            "2. 요약문은 구체적이고 자세하게 작성하며, 500자 이상으로 충분한 정보를 제공해 주세요.\n"
+            "3. 기사에 언급된 기업, 거래 발생 시간, 시장 동향, 사건 전개 및 금융 당국의 조사 결과 등 중요한 세부 사항을 빠뜨리지 말고 포함해 주세요.\n"
+            "4. 각 요약문은 명확하고 간결한 문장으로 구성해 주세요.\n"
+        )
 
     prompt = PromptTemplate(template=template, input_variables=["content"])
 
@@ -149,7 +148,10 @@ def EEVE_RAG(filename):
 
             # LLM을 통한 요약 생성
             result = llm_chain.run(content=doc.page_content)
-            all_results += f"Article {i+1} Summary:\n{result}\n\n"
+            if translate:
+                all_results += f"Finance Article {i+1} Summary:\n{result}\n\n"
+            else:
+                all_results += f"Article {i+1} Summary:\n{result}\n\n"
 
             # 벡터 DB에 요약 결과 저장 (중복 방지를 위해)
             vector_db.add_texts([result], metadatas=[{"source": f"Article_{i+1}"}])
@@ -157,7 +159,7 @@ def EEVE_RAG(filename):
 
     # 결과 저장
     today = datetime.datetime.today().strftime('%Y-%m-%d')
-    output_dir = "./EEVE_summary"
+    output_dir = "./News_Summaries_EEVE"
     output_filename = f"{output_dir}/{today}.txt"
 
     # 디렉터리가 존재하지 않으면 생성
@@ -166,7 +168,7 @@ def EEVE_RAG(filename):
         print(f"Directory '{output_dir}' created.")
     else:
         pass
-    with open(output_filename, 'w', encoding='utf-8') as file:
+    with open(output_filename, 'a', encoding='utf-8') as file:
         file.write(all_results)
     
     print(f"All summaries saved to {output_filename}")
