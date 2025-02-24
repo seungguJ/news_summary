@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import os
 
 headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"
+    "User-Agent": "Your User Agent"
 }
 
 def create_soup(url):

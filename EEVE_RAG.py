@@ -152,7 +152,7 @@ def EEVE_RAG(filename, translate=False):
             # LLM을 통한 요약 생성
             result = llm_chain.run(content=doc.page_content)
             if translate:
-                all_results += f"## **Finance Article {number+1} Summary**:\n{result}\n\n"
+                all_results += f"## **Financial Article {number+1} Summary**:\n{result}\n\n"
             else:
                 all_results += f"## **Article {number+1} Summary**:\n{result}\n\n"
 

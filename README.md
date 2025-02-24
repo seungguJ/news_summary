@@ -2,7 +2,7 @@
 
 ## How to run
 ```
-python main_news_EEVE.py
+bash run.sh
 ```
 
 ### Information
@@ -19,7 +19,7 @@ template: prompt template
 </details>
 
 <details>
-<summary> crawling.py </summary>
+<summary> crawling file </summary>
 
 headers = {"User-Agent": "Your user-agent"}
 
@@ -29,6 +29,7 @@ You can find your user-agent from <https://www.whatismybrowser.com/detect/what-i
 
 ### Crawling
 
+- Financial articles from yahoo finance
 - News headlines from 6 media companies on Naver
 - Economics articles from naver
 - IT/Science articles from naver

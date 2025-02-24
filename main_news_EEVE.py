@@ -15,12 +15,12 @@ yahoo_fiance_filename = f"./News/{today}_yahoo_finance_news.txt"
 if os.path.exists(filename):
     pass
 else:
-    filename = news_crawling()
+    news_crawling()
 
 if os.path.exists(yahoo_fiance_filename):
     pass
 else:
-    yahoo_fiance_filename = yahoo_finance_news_crawling()
+    yahoo_finance_news_crawling()
 
 EEVE_RAG(yahoo_fiance_filename, translate=True)
 EEVE_RAG(filename)
