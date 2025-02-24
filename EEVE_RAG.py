@@ -99,7 +99,7 @@ def EEVE_RAG(filename, translate=False):
             "다음 기사를 읽고 요약해 주세요:\n\n"
             "{content}\n\n"
             "요약 형식:\n"
-            "- 제목: [제목]\n"
+            "- **제목**: [제목]\n"
             "- 요약: [요약문]\n\n"
             "요약 작성 시 유의사항:\n"
             "1. 각 요약문은 해당 기사 본문의 핵심 내용을 모두 포함해야 합니다.\n"
@@ -112,7 +112,7 @@ def EEVE_RAG(filename, translate=False):
             "다음 영어 기사를 읽고 한국말로 요약해 주세요:\n\n"
             "{content}\n\n"
             "요약 형식:\n"
-            "- 제목: [제목]\n"
+            "- **제목**: [제목]\n"
             "- 요약: [요약문]\n\n"
             "요약 작성 시 유의사항:\n"
             "1. 각 요약문은 해당 기사 본문의 핵심 내용을 모두 포함해야 합니다.\n"
@@ -152,9 +152,9 @@ def EEVE_RAG(filename, translate=False):
             # LLM을 통한 요약 생성
             result = llm_chain.run(content=doc.page_content)
             if translate:
-                all_results += f"## Finance Article {number+1} Summary:\n{result}\n\n"
+                all_results += f"## **Finance Article {number+1} Summary**:\n{result}\n\n"
             else:
-                all_results += f"## Article {number+1} Summary:\n{result}\n\n"
+                all_results += f"## **Article {number+1} Summary**:\n{result}\n\n"
 
             # 벡터 DB에 요약 결과 저장 (중복 방지를 위해)
             vector_db.add_texts([result], metadatas=[{"source": f"Article_{i+1}"}])
