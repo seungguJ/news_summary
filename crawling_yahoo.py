@@ -24,7 +24,7 @@ def get_article(content):
     try:
         article_content = ""
         soup = create_soup(content)  # 해당 URL로부터 BeautifulSoup 객체 생성
-        content = soup.find("div", attrs={"class": "body yf-tsvcyu"}).find_all("p", attrs={"class": "yf-1pe5jgt"})  # 본문 영역
+        content = soup.find("div", class_=lambda x: x and "body yf" in x).find_all("p", class_=lambda x: x and "yf" in x)
         for element in content:
             # p 태그의 상위 li 태그 중 class가 "yf-1woyvo2"가 있는지 확인
             if not element.find_parent("li", class_="yf-1woyvo2"):
