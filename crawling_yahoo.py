@@ -47,20 +47,18 @@ def yahoo_finance_news_crawling():
     else:
         pass
 
-    url = "https://finance.yahoo.com/news/"
+    url = "https://finance.yahoo.com/topic/latest-news/"
     soup = create_soup(url)
-
-    # h2 news
-    h2_news = soup.find_all("div", attrs={"class": "content yf-1jvnfga btmMarginMd"})
-
     news_list = []
-
-    for i in range(len(h2_news)):
-        news_title = h2_news[i].get_text()
-        news_link = h2_news[i].a["href"]
-        news_content = get_article(news_link)
-        news_list.append((news_title, news_content))
     
+    # # h2 news # Homepage changed
+    # h2_news = soup.find_all("div", attrs={"class": "content yf-1jvnfga"})
+
+    # for i in range(len(h2_news)):
+    #     news_title = h2_news[i].get_text()
+    #     news_link = h2_news[i].a["href"]
+    #     news_content = get_article(news_link)
+    #     news_list.append((news_title, news_content))
     
     # h3 news
     h3_news = soup.find_all("div", attrs={"class": "content yf-82qtw3"})

@@ -52,6 +52,24 @@ def split_articles_by_title(text):
     
     return articles_with_title
 
+def preprocess_result(text):
+    lines = text.strip().splitlines()
+    processed_lines = []
+
+    for line in lines:
+        if "제목" in line:
+            clean_line = line.replace("#","").strip()
+            processed_lines.append(f"### {clean_line}  \n\n ")
+        elif "요약:" in line:
+            clean_line = line.replace("**","").strip()
+            clean_line = clean_line.replace("#","").strip()
+            processed_lines.append((clean_line.replace("요약", "**요약**")))
+        else:
+            processed_lines.append(line)
+    
+    result_text = "".join(processed_lines)
+    return result_text
+
 def EEVE_RAG(filename, translate=False):
     today = datetime.datetime.today().strftime('%Y-%m-%d')
     llm = ChatOllama(
@@ -96,29 +114,29 @@ def EEVE_RAG(filename, translate=False):
     # 프롬프트 템플릿
     if not translate:
         template = (
-            "다음 기사를 읽고 다음과 같은 마크다운(Markdown) 형식으로 요약해 주세요:\n\n"
-            "{content}\n\n"
+            "다음 기사를 읽고 다음과 같은 한 개의 '제목'과 '요약'으로 구성된 마크다운(Markdown) 형식으로 요약해 주세요:\n"
+            "{content}\n"
             "요약 형식(마크다운):\n"
-            "**제목**: **[제목]**\n"
+            "### 제목: [제목]\n"
             "**요약**: [요약문]\n\n"
             "요약 작성 시 유의사항:\n"
             "1. 각 요약문 앞서 주어진 마크다운 요약 형식에 맞춰서 요약해주세요. 제목 다음 줄바꿈 한 뒤 요약으로 넘어가주세요.\n"
             "2. 각 요약문은 해당 기사 본문의 핵심 내용을 모두 포함해야 합니다.\n"
-            "3. 요약문은 구체적이고 자세하게 작성하며, 400자 이상으로 충분한 정보를 제공해 주세요.\n"
+            "3. 요약문은 구체적이고 자세하게 작성하며, 300자 이상으로 충분한 정보를 제공해 주세요.\n"
             "4. 기사에 언급된 인물, 사건 발생 시간, 장소, 사건의 경위 및 경찰의 조사 상황 등 중요한 세부 사항을 빠뜨리지 말고 포함해 주세요.\n"
             "5. 각 요약문은 명확하고 간결한 문장으로 한 개의 제목과 요약으로 구성해 주세요.\n"
         )
     else:
         template = (
-            "다음 영어 기사를 읽고 한국말로 다음과 같은 같은 마크다운(Markdown) 형식으로 요약해 주세요:\n\n"
-            "{content}\n\n"
+            "다음 기사를 읽고 다음과 같은 한 개의 '제목'과 '요약'으로 구성된 마크다운(Markdown) 형식으로 한국말로 요약해 주세요:\n"
+            "{content}\n"
             "요약 형식(마크다운):\n"
-            "**제목**: **[제목]**\n"
+            "### 제목: [제목]\n"
             "**요약**: [요약문]\n\n"
             "요약 작성 시 유의사항:\n"
             "1. 각 요약문 앞서 주어진 요약 형식에 맞춰서 요약해주세요.제목 다음 줄바꿈 한 뒤 요약으로 넘어가주세요.\n"
             "2. 각 요약문은 해당 기사 본문의 핵심 내용을 모두 포함해야 합니다.\n"
-            "3. 요약문은 구체적이고 자세하게 작성하며, 400자 이상으로 충분한 정보를 제공해 주세요.\n"
+            "3. 요약문은 구체적이고 자세하게 작성하며, 300자 이상으로 충분한 정보를 제공해 주세요.\n"
             "4. 기사에 언급된 인물, 사건 발생 시간, 장소, 사건의 경위 및 경찰의 조사 상황 등 중요한 세부 사항을 빠뜨리지 말고 포함해 주세요.\n"
             "5. 각 요약문은 명확하고 간결한 문장으로 한 개의 제목과 요약으로 구성해 주세요.\n"
         )
@@ -152,6 +170,7 @@ def EEVE_RAG(filename, translate=False):
 
             # LLM을 통한 요약 생성
             result = llm_chain.run(content=doc.page_content)
+            result = preprocess_result(result)
             if translate:
                 all_results += f"## **Financial Article {number+1} Summary**:\n{result}\n\n"
             else:
