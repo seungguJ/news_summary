@@ -1,4 +1,5 @@
 import requests
+import re
 from bs4 import BeautifulSoup
 import datetime
 from zoneinfo import ZoneInfo
@@ -61,7 +62,7 @@ def yahoo_finance_news_crawling():
     #     news_list.append((news_title, news_content))
     
     # h3 news
-    h3_news = soup.find_all("div", attrs={"class": "content yf-82qtw3"})
+    h3_news = soup.find_all("div", class_=re.compile(r"^content yf-"))
 
     for i in range(len(h3_news)):
         news_title = h3_news[i].get_text()
