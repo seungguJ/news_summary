@@ -22,5 +22,5 @@ if os.path.exists(yahoo_fiance_filename):
 else:
     yahoo_finance_news_crawling()
 
-EEVE_RAG(yahoo_fiance_filename, translate=True)
-EEVE_RAG(filename)
+EEVE_RAG(yahoo_fiance_filename, translate=True, llm_model_name="exaone")
+EEVE_RAG(filename, llm_model_name="exaone")

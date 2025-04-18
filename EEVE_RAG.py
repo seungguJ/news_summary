@@ -11,34 +11,14 @@ import datetime
 from zoneinfo import ZoneInfo
 import tiktoken
 from langchain.schema import Document
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from langchain_huggingface import HuggingFacePipeline
+import torch
 
-def count_tokens(text, model="gpt-3.5-turbo"):
+def count_tokens(text, model="gpt-3.5-turbo"): # need to be changed
     """텍스트의 토큰 수를 계산합니다."""
     encoding = tiktoken.encoding_for_model(model)
     return len(encoding.encode(text))
-
-def print_token_usage(query, documents, model="gpt-3.5-turbo"):
-    """쿼리와 문서의 토큰 수를 출력하고 총합을 계산합니다."""
-    query_tokens = count_tokens(query, model)
-    print(f"Query tokens: {query_tokens}")
-
-    total_doc_tokens = 0
-    for i, doc in enumerate(documents):
-        doc_tokens = count_tokens(doc.page_content, model)
-        total_doc_tokens += doc_tokens
-        print(f"Document {i+1}: {doc_tokens} tokens")
-
-    total_tokens = query_tokens + total_doc_tokens
-    print(f"Total input tokens: {total_tokens}")
-
-    # 최대 토큰 수 설정 (예: 4096 또는 8192)
-    max_tokens = 4096  # 필요에 따라 변경
-    print(f"Max tokens allowed: {max_tokens}")
-
-    if total_tokens > max_tokens:
-        print("⚠️ Warning: Total tokens exceed the model's maximum input limit!")
-    else:
-        print("✅ Total tokens are within the acceptable range.")
 
 def split_articles_by_title(text):
     # '- 제목'을 기준으로 텍스트 분할
@@ -51,6 +31,12 @@ def split_articles_by_title(text):
     articles_with_title = ['- 제목' + article for article in articles]
     
     return articles_with_title
+
+def is_format_valid(text):
+    if "제목" in text and "요약" in text:
+        return True
+    else:
+        return False
 
 def preprocess_result(text):
     lines = text.strip().splitlines()
@@ -70,12 +56,18 @@ def preprocess_result(text):
     result_text = "".join(processed_lines)
     return result_text
 
-def EEVE_RAG(filename, translate=False):
+def EEVE_RAG(filename, translate=False, llm_model_name='EEVE'):
     today = datetime.datetime.today().strftime('%Y-%m-%d')
-    llm = ChatOllama(
-        model="EEVE-Korean-10.8B:latest",
-        callback_manager=CallbackManager([]),
-    )
+    if llm_model_name == 'EEVE':
+        llm = ChatOllama(
+            model="EEVE-Korean-10.8B:latest",
+            callback_manager=CallbackManager([]),
+        )
+    elif llm_model_name == "exaone":
+        llm = ChatOllama(
+            model="exaone:latest",
+            callback_manager=CallbackManager([]),
+        )
 
     model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
     model_kwargs = {'device': 'cuda:0'}
@@ -170,6 +162,14 @@ def EEVE_RAG(filename, translate=False):
 
             # LLM을 통한 요약 생성
             result = llm_chain.run(content=doc.page_content)
+            flag = is_format_valid(result)
+            if flag:
+                pass
+            else:
+                while not flag: # invalid format
+                    print(f'Article {i+1} Reprocessing')
+                    result = result = llm_chain.run(content=doc.page_content)
+                    flag = is_format_valid(result)
             result = preprocess_result(result)
             if translate:
                 all_results += f"## **Financial Article {number+1} Summary**:\n{result}\n\n"

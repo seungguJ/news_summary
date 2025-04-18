@@ -16,6 +16,7 @@ A lower value indicates higher similarity
 
 template: prompt template
 
+Add EXAONE-3.5-7.8B-Instruct-BF16 model
 </details>
 
 <details>
@@ -37,6 +38,7 @@ You can find your user-agent from <https://www.whatismybrowser.com/detect/what-i
 
 ### Citation
 <https://huggingface.co/yanolja/EEVE-Korean-Instruct-10.8B-v1.0>
+<https://github.com/LG-AI-EXAONE/EXAONE-3.5?tab=readme-ov-file>
 
 ```
 @misc{kim2024efficient,
@@ -46,5 +48,12 @@ You can find your user-agent from <https://www.whatismybrowser.com/detect/what-i
       eprint={2402.14714},
       archivePrefix={arXiv},
       primaryClass={cs.CL}
+}
+
+@article{exaone-3.5,
+  title={EXAONE 3.5: Series of Large Language Models for Real-world Use Cases},
+  author={LG AI Research},
+  journal={arXiv preprint arXiv:2412.04862},
+  year={2024}
 }
 ```
