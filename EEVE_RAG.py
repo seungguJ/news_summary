@@ -14,11 +14,68 @@ from langchain.schema import Document
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from langchain_huggingface import HuggingFacePipeline
 import torch
+import sentencepiece as spm
 
 def count_tokens(text, model="gpt-3.5-turbo"): # need to be changed
     """텍스트의 토큰 수를 계산합니다."""
     encoding = tiktoken.encoding_for_model(model)
     return len(encoding.encode(text))
+
+def split_text_by_tokens(text, max_tokens=2048, model="gpt-3.5-turbo"):
+    """텍스트를 토큰 제한에 맞게 분할합니다."""
+    encoding = tiktoken.encoding_for_model(model)
+    tokens = encoding.encode(text)
+    
+    if len(tokens) <= max_tokens:
+        return [text]
+    else:
+        return [text[:max_tokens]]
+    
+    # 문단 단위로 분할
+    paragraphs = text.split('\n\n')
+    chunks = []
+    current_chunk = []
+    current_tokens = 0
+    
+    for paragraph in paragraphs:
+        paragraph_tokens = len(encoding.encode(paragraph))
+        
+        if current_tokens + paragraph_tokens > max_tokens:
+            if current_chunk:
+                chunks.append('\n\n'.join(current_chunk))
+                current_chunk = []
+                current_tokens = 0
+            
+            # 단일 문단이 max_tokens를 초과하는 경우
+            if paragraph_tokens > max_tokens:
+                # 문장 단위로 분할
+                sentences = paragraph.split('. ')
+                current_sentences = []
+                current_sentence_tokens = 0
+                
+                for sentence in sentences:
+                    sentence_tokens = len(encoding.encode(sentence))
+                    if current_sentence_tokens + sentence_tokens > max_tokens:
+                        if current_sentences:
+                            chunks.append('. '.join(current_sentences) + '.')
+                            current_sentences = []
+                            current_sentence_tokens = 0
+                    current_sentences.append(sentence)
+                    current_sentence_tokens += sentence_tokens
+                
+                if current_sentences:
+                    chunks.append('. '.join(current_sentences) + '.')
+            else:
+                current_chunk.append(paragraph)
+                current_tokens = paragraph_tokens
+        else:
+            current_chunk.append(paragraph)
+            current_tokens += paragraph_tokens
+    
+    if current_chunk:
+        chunks.append('\n\n'.join(current_chunk))
+    
+    return chunks
 
 def split_articles_by_title(text):
     # '- 제목'을 기준으로 텍스트 분할
@@ -39,24 +96,101 @@ def is_format_valid(text):
         return False
 
 def preprocess_result(text):
-    lines = text.strip().splitlines()
-    processed_lines = []
-
-    for line in lines:
-        if "제목" in line:
-            clean_line = line.replace("#","").strip()
-            processed_lines.append(f"\n ### {clean_line}  \n\n ")
-        elif "요약:" in line:
-            clean_line = line.replace("**","").strip()
-            clean_line = clean_line.replace("#","").strip()
-            processed_lines.append((clean_line.replace("요약", "**요약**")))
-        else:
-            processed_lines.append(line)
+    # Remove markdown code block markers
+    text = text.replace("```markdown", "").replace("```", "").strip()
     
-    result_text = "".join(processed_lines)
-    return result_text
+    # Remove the last ``` if it exists
+    if text.endswith("```"):
+        text = text[:-3].strip()
+    
+    lines = text.split('\n')
+    processed_lines = []
+    current_title = None
 
-def EEVE_RAG(filename, translate=False, llm_model_name='EEVE'):
+    for i, line in enumerate(lines):
+        line = line.strip()
+        if not line:
+            continue
+
+        # 제목 처리
+        if "제목" in line:
+            # 제목과 요약이 한 줄에 있는 경우
+            if "요약" in line:
+                parts = line.split("요약")
+                title_part = parts[0].replace("#", "").replace("제목:", "").strip()
+                summary_part = parts[1].strip()
+                
+                # 제목 처리
+                title_line = f"### 제목: {title_part}"
+                title_line = title_line.replace("**", "")
+                title_line = title_line.replace("~", r"\~")
+                processed_lines.append(title_line)
+                processed_lines.append("")  # 1줄 개행
+                processed_lines.append("")  # 2줄 개행
+                
+                # 요약 처리
+                if summary_part:
+                    summary_part = summary_part.replace("*", "").replace("#","")
+                    summary_part = summary_part.replace("요약", " **요약**")
+                    summary_line = summary_line.replace("~", r"\~")
+                    processed_lines.append(summary_line)
+            else:
+                # 일반 제목 처리
+                clean_line = line.replace("#", "").replace("제목:", "").strip()
+                title_line = f"### 제목: {clean_line}"
+                title_line = title_line.replace("~", r"\~")
+                processed_lines.append(title_line)
+                processed_lines.append("")  # 1줄 개행
+                processed_lines.append("")  # 2줄 개행
+
+        # 요약 처리
+        elif "요약:" in line:
+            clean_line = line.replace("**", "").replace("#", "").strip()
+            summary_line = clean_line.replace("요약", " **요약**")
+            summary_line = summary_line.replace("~", r"\~")
+            processed_lines.append(summary_line)
+
+        # 일반 텍스트 처리
+        else:
+            clean_line = line.replace("~", r"\~")
+            processed_lines.append(clean_line)
+
+    return '\n'.join(processed_lines)
+
+def process_chunks_with_llm(chunks, llm_chain):
+    """여러 청크를 하나의 요약으로 처리합니다."""
+    combined_summary = ""
+    
+    # 각 청크에 대한 간단한 요약 생성
+    chunk_summaries = []
+    for chunk in chunks:
+        result = llm_chain.run(content=chunk)
+        flag = is_format_valid(result)
+        if not flag:
+            while not flag:
+                print(f"Invalid format. Retrying...")
+                result = llm_chain.run(content=chunk)
+                flag = is_format_valid(result)
+        # # for debug
+        # if flag:
+        #     with open("unprocessed_result.txt", 'a', encoding='utf-8') as file:
+        #         file.write(result)
+        return preprocess_result(result)
+    
+    # # 모든 청크 요약을 하나로 합침
+    # combined_content = "\n\n".join(chunk_summaries)
+    
+    # # 최종 요약 생성
+    # final_result = llm_chain.run(content=combined_content)
+    # flag = is_format_valid(final_result)
+    # if not flag:
+    #     while not flag:
+    #         final_result = llm_chain.run(content=combined_content)
+    #         flag = is_format_valid(final_result)
+    
+    # return preprocess_result(final_result)
+
+def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
     today = datetime.datetime.today().strftime('%Y-%m-%d')
     if llm_model_name == 'EEVE':
         llm = ChatOllama(
@@ -156,29 +290,21 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE'):
                 is_duplicate = True
         
         if not is_duplicate:
-            # 토큰 수 확인
-            tokens = count_tokens(doc.page_content, model="gpt-3.5-turbo")
-            print(f"Article {i+1} Tokens: {tokens}")
-
-            # LLM을 통한 요약 생성
-            result = llm_chain.run(content=doc.page_content)
-            flag = is_format_valid(result)
-            if flag:
-                pass
-            else:
-                while not flag: # invalid format
-                    print(f'Article {i+1} Reprocessing')
-                    result = result = llm_chain.run(content=doc.page_content)
-                    flag = is_format_valid(result)
-            result = preprocess_result(result)
+            # 토큰 수 확인 및 분할
+            chunks = split_text_by_tokens(doc.page_content)
+            
+            # 모든 청크를 하나의 요약으로 처리
+            article_summary = process_chunks_with_llm(chunks, llm_chain)
+            
             if translate:
-                all_results += f"## **Financial Article {number+1} Summary**:\n{result}\n\n"
+                all_results += f"## **Financial Article {number+1} Summary**:\n{article_summary}\n\n"
             else:
-                all_results += f"## **Article {number+1} Summary**:\n{result}\n\n"
+                all_results += f"## **Article {number+1} Summary**:\n{article_summary}\n\n"
 
             # 벡터 DB에 요약 결과 저장 (중복 방지를 위해)
-            vector_db.add_texts([result], metadatas=[{"source": f"Article_{i+1}"}])
-            vector_db.persist()
+            if not is_test:
+                vector_db.add_texts([article_summary], metadatas=[{"source": f"Article_{i+1}"}])
+                vector_db.persist()
             number += 1
 
     # 결과 저장
@@ -191,8 +317,13 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE'):
         print(f"Directory '{output_dir}' created.")
     else:
         pass
-    with open(output_filename, 'a', encoding='utf-8') as file:
-        file.write(all_results)
+    if not is_test:
+        with open(output_filename, 'a', encoding='utf-8') as file:
+            file.write(all_results)
     
-    print(f"All summaries saved to {output_filename}")
-    print(f"Vector DB saved to {vector_db_dir}")
+        print(f"All summaries saved to {output_filename}")
+        print(f"Vector DB saved to {vector_db_dir}")
+    # else:
+    #     with open("test_output.txt", 'w', encoding='utf-8') as file:
+    #         file.write(all_results)
+    #     print(f"All summaries saved to test_output.txt")
