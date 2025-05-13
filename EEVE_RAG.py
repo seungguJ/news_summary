@@ -107,17 +107,19 @@ def preprocess_result(text):
     processed_lines = []
     current_title = None
 
-    for i, line in enumerate(lines):
-        line = line.strip()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
         if not line:
+            i += 1
             continue
 
         # 제목 처리
-        if "제목" in line:
+        if "### 제목:" in line:
             # 제목과 요약이 한 줄에 있는 경우
             if "요약" in line:
                 parts = line.split("요약")
-                title_part = parts[0].replace("#", "").replace("제목:", "").strip()
+                title_part = parts[0].replace("### 제목:", "").strip()
                 summary_part = parts[1].strip()
                 
                 # 제목 처리
@@ -126,22 +128,30 @@ def preprocess_result(text):
                 title_line = title_line.replace("~", r"\~")
                 processed_lines.append(title_line)
                 processed_lines.append("")  # 1줄 개행
-                processed_lines.append("")  # 2줄 개행
                 
                 # 요약 처리
                 if summary_part:
                     summary_part = summary_part.replace("*", "").replace("#","")
-                    summary_part = summary_part.replace("요약", " **요약**")
-                    summary_line = summary_line.replace("~", r"\~")
+                    summary_part = f'**요약**: {summary_part}'
+                    summary_part = summary_part.replace(": :", ":")
+                    summary_line = summary_part.replace("~", r"\~")
                     processed_lines.append(summary_line)
             else:
-                # 일반 제목 처리
-                clean_line = line.replace("#", "").replace("제목:", "").strip()
-                title_line = f"### 제목: {clean_line}"
-                title_line = title_line.replace("~", r"\~")
-                processed_lines.append(title_line)
-                processed_lines.append("")  # 1줄 개행
-                processed_lines.append("")  # 2줄 개행
+                # 현재 줄에 제목이 있는지 확인
+                current_title = line.replace("### 제목:", "").strip()
+                if current_title:  # 현재 줄에 제목이 있는 경우
+                    title_line = f"### 제목: {current_title}"
+                    title_line = title_line.replace("~", r"\~")
+                    processed_lines.append(title_line)
+                    processed_lines.append("")  # 1줄 개행
+                else:  # 제목이 다음 줄에 있는 경우
+                    if i + 1 < len(lines) and not lines[i + 1].strip().startswith("###") and not lines[i + 1].strip().startswith("요약"):
+                        next_line = lines[i + 1].strip()
+                        title_line = f"### 제목: {next_line}"
+                        title_line = title_line.replace("~", r"\~")
+                        processed_lines.append(title_line)
+                        processed_lines.append("")  # 1줄 개행
+                        i += 1  # 다음 줄을 건너뛰기
 
         # 요약 처리
         elif "요약:" in line:
@@ -154,6 +164,8 @@ def preprocess_result(text):
         else:
             clean_line = line.replace("~", r"\~")
             processed_lines.append(clean_line)
+        
+        i += 1
 
     return '\n'.join(processed_lines)
 
@@ -171,10 +183,10 @@ def process_chunks_with_llm(chunks, llm_chain):
                 print(f"Invalid format. Retrying...")
                 result = llm_chain.run(content=chunk)
                 flag = is_format_valid(result)
-        # # for debug
-        # if flag:
-        #     with open("unprocessed_result.txt", 'a', encoding='utf-8') as file:
-        #         file.write(result)
+        # for debug
+        if flag:
+            with open("unprocessed_result.txt", 'a', encoding='utf-8') as file:
+                file.write(result)
         return preprocess_result(result)
     
     # # 모든 청크 요약을 하나로 합침
@@ -199,7 +211,7 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
         )
     elif llm_model_name == "exaone":
         llm = ChatOllama(
-            model="exaone:latest",
+            model="exaone3.5-instruct-7.8B:latest",
             callback_manager=CallbackManager([]),
         )
 
@@ -290,11 +302,14 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
                 is_duplicate = True
         
         if not is_duplicate:
+            article_summary = llm_chain.run(content=doc.page_content)
+            article_summary = preprocess_result(article_summary)
             # 토큰 수 확인 및 분할
-            chunks = split_text_by_tokens(doc.page_content)
+            # chunks = split_text_by_tokens(doc.page_content)
             
             # 모든 청크를 하나의 요약으로 처리
-            article_summary = process_chunks_with_llm(chunks, llm_chain)
+            # article_summary = process_chunks_with_llm(chunks, llm_chain)
+            
             
             if translate:
                 all_results += f"## **Financial Article {number+1} Summary**:\n{article_summary}\n\n"

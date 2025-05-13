@@ -65,12 +65,15 @@ def yahoo_finance_news_crawling():
     h3_news = soup.find_all("div", class_=re.compile(r"^content yf-"))
 
     for i in range(len(h3_news)):
-        news_title = h3_news[i].get_text()
-        news_link = h3_news[i].a["href"]
-        news_content = get_article(news_link)
-        if "에러 발생" in news_content:
-            continue
-        news_list.append((news_title, news_content))
+        try:
+            news_title = h3_news[i].get_text()
+            news_link = h3_news[i].a["href"]
+            news_content = get_article(news_link)
+            if "에러 발생" in news_content:
+                continue
+            news_list.append((news_title, news_content))
+        except:
+            pass
     
     write_news_to_text_file(filename, news_list)
     print("News written to", filename)
