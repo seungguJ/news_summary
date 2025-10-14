@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import os
 
 headers = {
-    "User-Agent": "Your User Agent"
+    "User-Agent": "{Your user-agent}"
 }
 
 def create_soup(url):
@@ -42,10 +42,11 @@ def get_article_content_from_aitimes(url):
         return f"에러 발생: {e}"
 
 
-def news_crawling():
+def news_crawling(filename):
     today = datetime.datetime.now(ZoneInfo("Asia/Seoul")).strftime('%Y-%m-%d')
-    file_dir = "./News"
-    filename = f"{file_dir}/{today}_news.txt"  # Save as text file
+    month = datetime.datetime.now().strftime('%Y-%m')
+    file_dir = f"./News/{month}"
+    # filename = f"{file_dir}/{today}_news.txt"  # Save as text file
     if not os.path.exists(file_dir):
         os.makedirs(file_dir)
         print(f"Directory '{file_dir}' created.")
@@ -69,7 +70,7 @@ def news_crawling():
             news_link = news_item["href"]  # 뉴스 링크 추출
             news_content = get_article_content(news_link)  # 본문 내용 크롤링
             # section_news_list.append((news_title, news_content, news_link))
-            section_news_list.append((news_title, news_content)) # 링크 제거
+            section_news_list.append((news_title, news_content))
         news_data[section_name] = section_news_list
 
     # 경제 뉴스
@@ -77,13 +78,13 @@ def news_crawling():
     soup = create_soup(url)
     eco_news = soup.find_all("ul", attrs={"class": "sa_list"})
     eco_news_list = []
-    for i in range(6):
+    for i in range(2):
         for news_item in eco_news[i].find_all("li", attrs={"class": "sa_item"}):
             eco_new = news_item.find("a", attrs={"class": "sa_text_title"}).get_text()
             eco_new_link = news_item.a["href"]
             eco_new_content = get_article_content(eco_new_link)  # 본문 내용 크롤링
             # eco_news_list.append((eco_new, eco_new_content, eco_new_link))
-            eco_news_list.append((eco_new, eco_new_content)) # 링크 제거
+            eco_news_list.append((eco_new[1:], eco_new_content))
     news_data["경제 뉴스"] = eco_news_list
 
     # IT/과학 뉴스
@@ -91,12 +92,16 @@ def news_crawling():
     soup = create_soup(url)
     it_news = soup.find_all("a", attrs={"class": "sa_text_title"})
     it_news_list = []
+    count = 0
     for news_item in it_news:
         it_title = news_item.get_text()
         it_link = news_item["href"]
         it_content = get_article_content(it_link)  # 본문 내용 크롤링
         # it_news_list.append((it_title, it_content, it_link))
-        it_news_list.append((it_title, it_content)) # 링크 제거
+        it_news_list.append((it_title[1:], it_content))
+        count += 1
+        if count == 10:
+            break
     news_data["IT/과학 뉴스"] = it_news_list
 
     # AI 뉴스
@@ -108,10 +113,9 @@ def news_crawling():
     for news_item in ai_news:
         ai_title = news_item.get_text()
         ai_link = news_item.a["href"]
-        ai_link = url + ai_link[1:]
         ai_content = get_article_content_from_aitimes(ai_link)  # 본문 내용 크롤링
         # ai_news_list.append((ai_title, ai_content, ai_link))
-        ai_news_list.append((ai_title, ai_content)) # 링크 제거
+        ai_news_list.append((ai_title[3:], ai_content))
         num_news += 1
         if num_news == 20:
             break

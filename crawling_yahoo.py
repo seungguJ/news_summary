@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import os
 
 headers = {
-    "User-Agent": "Your User Agent"
+    "User-Agent": "{Your user-agent}"
 }
 
 def create_soup(url):
@@ -38,10 +38,11 @@ def get_article(content):
         return f"에러 발생: {e}"
 
 
-def yahoo_finance_news_crawling():
+def yahoo_finance_news_crawling(filename):
     today = datetime.datetime.now(ZoneInfo("Asia/Seoul")).strftime('%Y-%m-%d')
-    file_dir = "./News"
-    filename = f"{file_dir}/{today}_yahoo_finance_news.txt"  # Save as text file
+    month = datetime.datetime.now().strftime('%Y-%m')
+    file_dir = f"./News/{month}"
+    # filename = f"{file_dir}/{today}_yahoo_finance_news.txt"  # Save as text file
     if not os.path.exists(file_dir):
         os.makedirs(file_dir)
         print(f"Directory '{file_dir}' created.")
@@ -63,7 +64,7 @@ def yahoo_finance_news_crawling():
     
     # h3 news
     h3_news = soup.find_all("div", class_=re.compile(r"^content yf-"))
-
+    count = 0
     for i in range(len(h3_news)):
         try:
             news_title = h3_news[i].get_text()
@@ -72,6 +73,9 @@ def yahoo_finance_news_crawling():
             if "에러 발생" in news_content:
                 continue
             news_list.append((news_title, news_content))
+            count += 1
+            if count == 20:
+                break
         except:
             pass
     

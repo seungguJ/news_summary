@@ -202,7 +202,7 @@ def process_chunks_with_llm(chunks, llm_chain):
     
     # return preprocess_result(final_result)
 
-def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
+def EEVE_RAG(filename, output_dir, translate=False, llm_model_name='EEVE', is_test=False):
     today = datetime.datetime.today().strftime('%Y-%m-%d')
     if llm_model_name == 'EEVE':
         llm = ChatOllama(
@@ -263,6 +263,7 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
             "3. 요약문은 구체적이고 자세하게 작성하며, 최대 5 줄의 문장으로 작성해 주시되, 충분한 정보를 제공해 주세요.\n"
             "4. 기사에 언급된 인물, 사건 발생 시간, 장소, 사건의 경위 및 경찰의 조사 상황 등 중요한 세부 사항을 빠뜨리지 말고 포함해 주세요.\n"
             "5. 각 요약문은 명확하고 간결한 문장으로 한 개의 제목과 요약으로 구성해 주세요.\n"
+            "6. 만약 기사 내용이 잘못되었거나 누락되었으면 요약문에 포함하지 않아주세요."
         )
     else:
         template = (
@@ -277,6 +278,7 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
             "3. 요약문은 구체적이고 자세하게 작성하며, 최대 5 줄의 문장으로 작성해 주시되, 충분한 정보를 제공해 주세요.\n"
             "4. 기사에 언급된 인물, 사건 발생 시간, 장소, 사건의 경위 및 경찰의 조사 상황 등 중요한 세부 사항을 빠뜨리지 말고 포함해 주세요.\n"
             "5. 각 요약문은 명확하고 간결한 문장으로 한 개의 제목과 요약으로 구성해 주세요.\n"
+            "6. 만약 기사 내용이 잘못되었거나 누락되었으면 요약문에 포함하지 않아주세요."
         )
 
     prompt = PromptTemplate(template=template, input_variables=["content"])
@@ -292,7 +294,7 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
         query_embedding = embedding_model.embed_query(doc.page_content)
         search_results = vector_db.similarity_search_by_vector_with_relevance_scores(query_embedding, k=1)
 
-        similarity_threshold = 3. ### (HYPER PARAMETER) Threshold 값 변경
+        similarity_threshold = 3.5 ### (HYPER PARAMETER) Threshold 값 변경
         is_duplicate = False
 
         if search_results:
@@ -322,10 +324,6 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
                 vector_db.persist()
             number += 1
 
-    # 결과 저장
-    output_dir = "./News_Summaries_EEVE"
-    output_filename = f"{output_dir}/{today}.md"
-
     # 디렉터리가 존재하지 않으면 생성
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -333,6 +331,7 @@ def EEVE_RAG(filename, translate=False, llm_model_name='EEVE', is_test=False):
     else:
         pass
     if not is_test:
+        output_filename = f"{output_dir}/{today}.md"
         with open(output_filename, 'a', encoding='utf-8') as file:
             file.write(all_results)
     
